@@ -20,7 +20,7 @@
   const input = document.getElementById('input');
 
   // Connect WebSocket to same host and port as page
-  const socket = new WebSocket(`ws://${location.host}`);
+  const socket = new WebSocket(`ws://192.168.18.13:3000`);
 
   socket.addEventListener('open', () => {
     appendMessage('Connected to chat server');
