@@ -37,17 +37,24 @@ let filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : r
   });
 });
 
+ function timestamp(){
+    const now=new Date();
+    return now.toLocaleTimeString([],{hour: '2-digit', minute: '2-digit' });
+  }
+
 // WebSocket server on same HTTP server
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
-  console.log('Client connected');
+  console.log(`[${timestamp()}] Client connected`);
 
   ws.on('message', (message) => {
     let msg;
     try{
       msg=JSON.parse(message.toString());
-      console.log(`Received from ${msg.user}:${msg.txt}`);
+      
+      msg.timestamp=timestamp();
+      console.log(`[${timestamp()}] Received from ${msg.user}:${msg.text}`);
     }
     catch (e){
       console.error('Invalid JSON',e);
@@ -62,7 +69,7 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log('Client disconnected');
+    console.log(`[${timestamp()}] Client disconnected`);
   });
 });
 

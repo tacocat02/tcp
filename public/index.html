@@ -29,7 +29,7 @@
   socket.addEventListener('message', event => {
     try{
       const msg=JSON.parse(event.data);
-      appendMessage(`${msg.user}: ${msg.text}`);
+      appendMessage(`[${msg.timestamp}] ${msg.user}: ${msg.text}`);
     }
     catch (e) {
       console.error('Invalid message format', e);
