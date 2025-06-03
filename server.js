@@ -5,8 +5,11 @@ const WebSocket = require('ws');
 
 // HTTP server to serve index.html
 const server = http.createServer((req, res) => {
-  let filePath = '.' + req.url;
-  if (filePath === './') filePath = './index.html';
+  // let filePath = '.' + req.url;
+  // if (filePath === './') filePath = './index.html';
+
+let filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
+
 
   const extname = String(path.extname(filePath)).toLowerCase();
   const mimeTypes = {
@@ -41,11 +44,19 @@ wss.on('connection', (ws) => {
   console.log('Client connected');
 
   ws.on('message', (message) => {
-    console.log('Received:', message.toString());
+    let msg;
+    try{
+      msg=JSON.parse(message.toString());
+      console.log(`Received from ${msg.user}:${msg.txt}`);
+    }
+    catch (e){
+      console.error('Invalid JSON',e);
+      return;
+    }
     // Broadcast message to all other clients
     wss.clients.forEach(client => {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message.toString());
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(msg));
       }
     });
   });

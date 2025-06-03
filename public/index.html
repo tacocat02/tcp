@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>WebSocket Chat</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
+  body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; }
   #messages { border: 1px solid #ccc; height: 300px; overflow-y: auto; padding: 10px; }
   #input { width: 100%; padding: 10px; box-sizing: border-box; }
 </style>
@@ -18,16 +18,22 @@
 <script>
   const messages = document.getElementById('messages');
   const input = document.getElementById('input');
-
+  const username=prompt("Name pls:"||"Guest");
   // Connect WebSocket to same host and port as page
-  const socket = new WebSocket(`ws://192.168.18.13:3000`);
+  const socket = new WebSocket(`ws.//${location.host}`);
 
   socket.addEventListener('open', () => {
     appendMessage('Connected to chat server');
   });
 
   socket.addEventListener('message', event => {
-    appendMessage(event.data);
+    try{
+      const msg=JSON.parse(event.data);
+      appendMessage(`${msg.user}: ${msg.text}`);
+    }
+    catch (e) {
+      console.error('Invalid message format', e);
+    }
   });
 
   socket.addEventListener('close', () => {
@@ -41,9 +47,12 @@
 
   input.addEventListener('keydown', event => {
     if (event.key === 'Enter' && input.value.trim() !== '') {
-      socket.send(input.value.trim());
-      appendMessage('You: ' + input.value.trim());
-      input.value = '';
+      const msg={
+        user:username,
+        text:input.value.trim()
+      };
+      socket.send(JSON.stringify(msg));
+      input.value='';
     }
   });
 
