@@ -1,60 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>WebSocket Chat</title>
-<style>
-  body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; }
-  #messages { border: 1px solid #ccc; height: 300px; overflow-y: auto; padding: 10px; }
-  #input { width: 100%; padding: 10px; box-sizing: border-box; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat App</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+    #messages { border: 1px solid #ccc; height: 300px; overflow-y: auto; padding: 10px; margin-top: 20px; }
+    #input { width: 100%; padding: 10px; box-sizing: border-box; margin-top: 10px; }
+    .hidden { display: none; }
+    .room-button { margin: 5px 0; display: block; }
+  </style>
 </head>
 <body>
-<h2>WebSocket Chat</h2>
-<div id="messages"></div>
-<input id="input" type="text" placeholder="Type message and press Enter" autocomplete="off" />
+
+<h2>AirTalk</h2>
+<div id="room-ui">
+  <p id="welcome-msg"></p>
+  <button id="create-btn">Create Room</button>
+  <div id="create-form" class="hidden">
+    <input type="text" id="room-name" placeholder="Room name" />
+    <label><input type="radio" name="room-type" value="open" checked /> Open</label>
+    <label><input type="radio" name="room-type" value="private" /> Private</label>
+    <button id="confirm-create">Create</button>
+  </div>
+
+  <p>Join open room:</p>
+  <div id="room-list">Loading rooms...</div>
+
+  <p>Join with code:</p>
+  <input type="text" id="join-code" placeholder="Room code" />
+  <button id="code-join-btn">Join</button>
+</div>
+
+<div id="chat-ui" class="hidden">
+  <div id="messages"></div>
+  <input id="input" type="text" placeholder="Type a message..." autocomplete="off" />
+</div>
 
 <script>
+  const socket = new WebSocket(`ws://${location.host}`);
   const messages = document.getElementById('messages');
   const input = document.getElementById('input');
-  const username=prompt("Name pls:"||"Guest");
-  // Connect WebSocket to same host and port as page
-  const socket = new WebSocket(`ws.//${location.host}`);
+  const chatUI = document.getElementById('chat-ui');
+  const roomUI = document.getElementById('room-ui');
+  const roomList = document.getElementById('room-list');
+  const joinCode = document.getElementById('join-code');
+  const codeJoinBtn = document.getElementById('code-join-btn');
+  const createBtn = document.getElementById('create-btn');
+  const createForm = document.getElementById('create-form');
+  const confirmCreate = document.getElementById('confirm-create');
+  const roomName = document.getElementById('room-name');
 
-  socket.addEventListener('open', () => {
-    appendMessage('Connected to chat server');
-  });
+  const username = prompt("Enter your name:") || "Guest";
+  document.getElementById('welcome-msg').textContent = `Welcome, ${username}!`;
+
+  //socket.addEventListener('open', () => {
+    socket.send(JSON.stringify({ type: 'list' }));
+  //});
 
   socket.addEventListener('message', event => {
-    try{
-      const msg=JSON.parse(event.data);
-      appendMessage(`[${msg.timestamp}] ${msg.user}: ${msg.text}`);
-    }
-    catch (e) {
-      console.error('Invalid message format', e);
-    }
-  });
+    const msg = JSON.parse(event.data);
+    switch (msg.type) {
+      case 'room_list':
+        roomList.innerHTML = '';
+        msg.rooms.forEach(room => {
+          const btn = document.createElement('button');
+          btn.textContent = room;
+          btn.className = 'room-button';
+          btn.onclick = () => joinRoom(room);
+          roomList.appendChild(btn);
+        });
+        if (msg.rooms.length === 0) roomList.textContent = "No open rooms.";
+        break;
 
-  socket.addEventListener('close', () => {
-    appendMessage('Disconnected from server');
-  });
+      case 'room_joined':
+        roomUI.classList.add('hidden');
+        chatUI.classList.remove('hidden');
+        if (msg.code) {
+          appendMessage(`You joined private room "${msg.room}" with code: ${msg.code}`);
+        } else {
+          appendMessage(`You joined room: ${msg.room}`);
+        }
+        break;
 
-  socket.addEventListener('error', error => {
-    appendMessage('WebSocket error');
-    console.error('WebSocket error:', error);
+      case 'chat':
+        appendMessage(`[${msg.timestamp}] ${msg.user}: ${msg.text}`);
+        break;
+
+      case 'error':
+        alert(msg.text);
+        break;
+
+      default:
+        console.warn("Unhandled message:", msg);
+    }
   });
 
   input.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && input.value.trim() !== '') {
-      const msg={
-        user:username,
-        text:input.value.trim()
-      };
-      socket.send(JSON.stringify(msg));
-      input.value='';
+    if (event.key === 'Enter' && input.value.trim()) {
+      socket.send(JSON.stringify({ type: 'chat', text: input.value.trim() }));
+      input.value = '';
     }
   });
+
+  function joinRoom(name) {
+    socket.send(JSON.stringify({ type: 'join', user: username, room: name }));
+  }
+
+  codeJoinBtn.onclick = () => {
+    const code = joinCode.value.trim();
+    if (code) {
+      socket.send(JSON.stringify({ type: 'join', user: username, code }));
+    }
+  };
+
+  createBtn.onclick = () => {
+    createForm.classList.toggle('hidden');
+  };
+
+  confirmCreate.onclick = () => {
+    const name = roomName.value.trim();
+    const type = document.querySelector('input[name="room-type"]:checked').value;
+    if (name) {
+      socket.send(JSON.stringify({
+        type: 'create',
+        user: username,
+        name,
+        isPrivate: type === 'private'
+      }));
+    }
+  };
 
   function appendMessage(msg) {
     const div = document.createElement('div');
